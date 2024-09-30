@@ -1,2 +1,2 @@
-storageLocation = "s3a://fxiddly58qjn/trial-cde-data"
+storageLocation = "s3a://jzezsuzf6jmj/trial-cde-data"
 username = "csso_schepuri"
