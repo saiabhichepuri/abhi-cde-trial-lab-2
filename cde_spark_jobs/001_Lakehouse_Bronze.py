@@ -51,8 +51,6 @@ spark = SparkSession \
 
 print("Storage Location from Config File: ", storageLocation)
 
-print("PySpark Runtime Arg: ", sys.argv[1])
-
 ### RECREATE DATABASE AND TRX TABLE
 spark.sql("DROP DATABASE IF EXISTS SPARK_CATALOG.HOL_DB_{} CASCADE".format(username))
 spark.sql("CREATE DATABASE IF NOT EXISTS SPARK_CATALOG.HOL_DB_{}".format(username))
