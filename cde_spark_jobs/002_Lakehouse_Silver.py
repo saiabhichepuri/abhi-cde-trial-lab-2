@@ -38,11 +38,11 @@
 #***************************************************************************/
 
 from pyspark.sql import SparkSession
-from config import *
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
-import sys, random, os, json, random, configparser
+import sys, random, os, json, random
 from utils import *
+from config import *
 from great_expectations.dataset.sparkdf_dataset import SparkDFDataset
 
 spark = SparkSession \
@@ -50,22 +50,27 @@ spark = SparkSession \
     .appName("BANK TRANSACTIONS SILVER LAYER") \
     .getOrCreate()
 
-
 print("Storage Location from Config File: ", storageLocation)
-
-
 #---------------------------------------------------
 #               PROCESS BATCH TRANSACTIONS
 #---------------------------------------------------
 
 ### TRANSACTIONS FACT TABLE
-branchDf = spark.sql("SELECT * FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0} VERSION AS OF 'ingestion_branch';".format(username))
+trxBatchDf = spark.read.json("{0}/transactions/{1}/trx_batch_2".format(storageLocation, username))
 
 ### TRX DF SCHEMA BEFORE CASTING
-branchDf.printSchema()
+trxBatchDf.printSchema()
+
+### CAST TYPES
+cols = ["transaction_amount", "latitude", "longitude"]
+trxBatchDf = castMultipleColumns(trxBatchDf, cols)
+trxBatchDf = trxBatchDf.withColumn("event_ts", trxBatchDf["event_ts"].cast("timestamp"))
+
+### TRX DF SCHEMA AFTER CASTING
+trxBatchDf.printSchema()
 
 print("COUNT OF NEW BATCH OF TRANSACTIONS")
-print(branchDf.count())
+print(trxBatchDf.count())
 
 
 #---------------------------------------------------
@@ -74,7 +79,7 @@ print(branchDf.count())
 
 # validate the data quality of the sales data with great-expectations
 
-geTrxBatchDf = SparkDFDataset(branchDf)
+geTrxBatchDf = SparkDFDataset(trxBatchDf)
 
 geTrxBatchDfValidation = geTrxBatchDf.expect_column_max_to_be_between(column="latitude", min_value=23, max_value=50)
 
@@ -91,10 +96,10 @@ assert geTrxBatchDfValidation.success, \
 spark.sql("""SELECT COUNT(*) FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}""".format(username)).show()
 
 ### APPEND OPERATION
-#branchDf.write.format("iceberg").mode("append").save("SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}".format(username))
+trxBatchDf.write.format("iceberg").mode("append").save("SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}".format(username))
 
 ### POST-MERGE COUNT:
-#spark.sql("""SELECT COUNT(*) FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}""".format(username)).show()
+spark.sql("""SELECT COUNT(*) FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}""".format(username)).show()
 
 ### MERGE INGESTION BRANCH INTO MAIN TABLE BRANCH
 
@@ -105,15 +110,15 @@ spark.sql("""SELECT COUNT(*) FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}""".forma
 #we will use the cherrypick operation to commit the changes to the table which were staged in the 'ing_branch' branch up until now.
 
 # SHOW PAST BRANCH SNAPSHOT ID'S
-spark.sql("SELECT * FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}.refs;".format(username)).show()
+#spark.sql("SELECT * FROM spark_catalog.DEFAULT.HIST_TRX_{0}.refs;".format(username)).show()
 
 # SAVE THE SNAPSHOT ID CORRESPONDING TO THE CREATED BRANCH
-branchSnapshotId = spark.sql("SELECT snapshot_id FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}.refs WHERE NAME == 'ingestion_branch';".format(username)).collect()[0][0]
-
+#branchSnapshotId = spark.sql("SELECT snapshot_id FROM spark_catalog.DEFAULT.HIST_TRX_{0}.refs WHERE NAME == 'ing_branch';".format(username)).collect()[0][0]
+#print(branchSnapshotId)
 # USE THE PROCEDURE TO CHERRY-PICK THE SNAPSHOT
 # THIS IMPLICITLY SETS THE CURRENT TABLE STATE TO THE STATE DEFINED BY THE CHOSEN PRIOR SNAPSHOT ID
-spark.sql("CALL spark_catalog.system.cherrypick_snapshot('SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0}',{1})".format(username, branchSnapshotId))
+#spark.sql("CALL spark_catalog.system.cherrypick_snapshot('spark_catalog.DEFAULT.HIST_TRX_{1}',{2})".format(username, username, branchSnapshotId))
 
 # VALIDATE THE CHANGES
 # THE TABLE ROW COUNT IN THE CURRENT TABLE STATE REFLECTS THE APPEND OPERATION - IT PREVIOSULY ONLY DID BY SELECTING THE BRANCH
-spark.sql("SELECT COUNT(*) FROM SPARK_CATALOG.HOL_DB_{0}.HIST_TRX_{0};".format(username)).show()
+#spark.sql("SELECT COUNT(*) FROM spark_catalog.DEFAULT.HIST_TRX_{0};".format(username)).show()
