@@ -39,7 +39,6 @@
 
 # Airflow DAG
 from datetime import datetime, timedelta, timezone
-from config import *
 from dateutil import parser
 from airflow import DAG
 from cloudera.cdp.airflow.operators.cde_operator import CDEJobRunOperator
@@ -51,7 +50,7 @@ from airflow.providers.github.operators.github import GithubOperator
 import pendulum
 import logging
 
-
+username = "csso_schepuri"
 dag_name = "BankFraudHol-"+username
 logger = logging.getLogger(__name__)
 
