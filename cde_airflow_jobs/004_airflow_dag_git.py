@@ -39,7 +39,7 @@
 
 # Airflow DAG
 from datetime import datetime, timedelta, timezone
-from config import username
+from config import *
 from dateutil import parser
 from airflow import DAG
 from cloudera.cdp.airflow.operators.cde_operator import CDEJobRunOperator
