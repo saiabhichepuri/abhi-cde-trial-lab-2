@@ -96,13 +96,6 @@ gold = CDEJobRunOperator(
         trigger_rule='all_success',
         )
 
-github_list_repos = GithubOperator(
-    task_id="github_list_repos",
-    github_method="get_user",
-    result_processor=lambda user: logger.info(list(user.get_repos())),
-    dag=dag
-)
-
 end = DummyOperator(
         task_id="end",
         dag=dag
