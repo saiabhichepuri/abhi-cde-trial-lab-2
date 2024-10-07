@@ -38,20 +38,14 @@
 #***************************************************************************/
 
 # Airflow DAG
-from datetime import datetime, timedelta, timezone
-from dateutil import parser
+from datetime import datetime
 from airflow import DAG
 from cloudera.cdp.airflow.operators.cde_operator import CDEJobRunOperator
-from airflow.operators.python import PythonOperator
 from airflow.operators.dummy_operator import DummyOperator
-from airflow.models.param import Param
-from airflow.operators.bash import BashOperator
-from airflow.providers.github.operators.github import GithubOperator
-import pendulum
 import logging
 
 username = "csso_schepuri"
-dag_name = "BankFraudHol-"+username
+dag_name = "BankFraudHol-" + username
 logger = logging.getLogger(__name__)
 
 print("Using DAG Name: {}".format(dag_name))
@@ -63,42 +57,42 @@ default_args = {
 }
 
 dag = DAG(
-        dag_name,
-        default_args=default_args,
-        catchup=False,
-        schedule_interval='@once',
-        is_paused_upon_creation=False
-        )
+    dag_name,
+    default_args=default_args,
+    catchup=False,
+    schedule_interval='@once',
+    is_paused_upon_creation=False
+)
 
 start = DummyOperator(
-        task_id="start",
-        dag=dag
+    task_id="start",
+    dag=dag
 )
 
 bronze = CDEJobRunOperator(
-        task_id='data-ingestion',
-        dag=dag,
-        job_name='001_Lakehouse_Bronze_'+username, #Must match name of CDE Spark Job in the CDE Jobs UI
-        trigger_rule='all_success',
-        )
-
-silver = CDEJobRunOperator(
-        task_id='iceberg-merge-branch',
-        dag=dag,
-        job_name='002_Lakehouse_Silver_'+username, #Must match name of CDE Spark Job in the CDE Jobs UI
-        trigger_rule='all_success',
-        )
-
-gold = CDEJobRunOperator(
-        task_id='gold-layer',
-        dag=dag,
-        job_name='003_Lakehouse_Gold_'+username, #Must match name of CDE Spark Job in the CDE Jobs UI
-        trigger_rule='all_success',
-        )
-
-end = DummyOperator(
-        task_id="end",
-        dag=dag
+    task_id='data-ingestion',
+    dag=dag,
+    job_name='001_Lakehouse_Bronze_' + username,  # Must match name of CDE Spark Job in the CDE Jobs UI
+    trigger_rule='all_success',
 )
 
-start >> bronze >> silver >> gold >> github_list_repos >> end
+silver = CDEJobRunOperator(
+    task_id='iceberg-merge-branch',
+    dag=dag,
+    job_name='002_Lakehouse_Silver_' + username,  # Must match name of CDE Spark Job in the CDE Jobs UI
+    trigger_rule='all_success',
+)
+
+gold = CDEJobRunOperator(
+    task_id='gold-layer',
+    dag=dag,
+    job_name='003_Lakehouse_Gold_' + username,  # Must match name of CDE Spark Job in the CDE Jobs UI
+    trigger_rule='all_success',
+)
+
+end = DummyOperator(
+    task_id="end",
+    dag=dag
+)
+
+start >> bronze >> silver >> gold >> end
